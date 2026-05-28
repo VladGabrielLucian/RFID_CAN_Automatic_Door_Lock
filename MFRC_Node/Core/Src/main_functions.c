@@ -150,12 +150,12 @@ void Reader_Notification_Feedback(uint8_t response_type){
  * @brief Automatically executed callback when a CAN message received in FIFO0
  * @param hcan: pointer to CAN struct
  */
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypedDef *hcan){
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
 	CAN_RxHeaderTypeDef RxHeader;
 	uint8_t RxData[8];
 
 	if(HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK){
-		if(RxHeader,StdId == CAN_ID_CENTRAL_CMD){
+		if(RxHeader.StdId == CAN_ID_CENTRAL_CMD){
 			Reader_Notification_Feedback(RxData[0]);
 		}
 	}

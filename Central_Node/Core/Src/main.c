@@ -76,7 +76,9 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_CAN_Init();
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -90,19 +92,81 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN_Init();
   /* USER CODE BEGIN 2 */
+  CAN_FilterTypeDef canFilterConfig;
+    canFilterConfig.FilterActivation = ENABLE;
+    canFilterConfig.FilterBank = 0;
+    canFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+    canFilterConfig.FilterIdHigh = 0x0000;
+    canFilterConfig.FilterIdLow = 0x0000;
+    canFilterConfig.FilterMaskIdHigh = 0x0000;
+    canFilterConfig.FilterMaskIdLow = 0x0000;
+    canFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+    canFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+    canFilterConfig.SlaveStartFilterBank = 14;
 
+    if (HAL_CAN_ConfigFilter(&hcan, &canFilterConfig) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    if (HAL_CAN_Start(&hcan) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    // Configurare pachet transmisie răspuns (ID 0x200)
+    CAN_TxHeaderTypeDef TxHeader;
+    uint8_t TxData[1];
+    uint32_t TxMailbox;
+
+    TxHeader.StdId = 0x200;
+    TxHeader.RTR = CAN_RTR_DATA;
+    TxHeader.IDE = CAN_ID_STD;
+    TxHeader.DLC = 1;
+    TxHeader.TransmitGlobalTime = DISABLE;
+
+    // Structuri recepție
+    CAN_RxHeaderTypeDef RxHeader;
+    uint8_t RxData[8];
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
+    while (1)
+      {
+          // Verifică buffer hardware FIFO0
+          if (HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
+          {
+              if (HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
+              {
+                  switch (RxHeader.StdId)
+                  {
+                      case 0x100: // ID primit de la MFRC Node
+                          // Verifică dacă primul octet coincide cu UID-ul tău real (161)
+                          if (RxData[0] == 161)
+                          {
+                              TxData[0] = 0x01; // ACCES PERMIS -> Declansează melodia (. . . __)
+                          }
+                          else
+                          {
+                              TxData[0] = 0x02; // ACCES RESPINS -> Bip lung roșu
+                          }
+                          HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);
+                          break;
 
-    /* USER CODE BEGIN 3 */
+                      case 0x105: // Keep-Alive
+                          // Primit periodic de la cititor, ignorat în testul rapid
+                          break;
+
+                      default:
+                          break;
+                  }
+              }
+          }
+      }
+      /* USER CODE END WHILE */
   }
   /* USER CODE END 3 */
-}
 
 /**
   * @brief System Clock Configuration
