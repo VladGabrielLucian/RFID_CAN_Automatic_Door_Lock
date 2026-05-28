@@ -1,0 +1,8 @@
+../Core/Src/rc522_module_driver.c:49:9:MFRC522_ReadRegister	32	static
+../Core/Src/rc522_module_driver.c:63:6:MFRC522_WriteRegister	24	static
+../Core/Src/rc522_module_driver.c:74:6:MFRC522_AntennaON	16	static
+../Core/Src/rc522_module_driver.c:80:6:MFRC522_Init	8	static
+../Core/Src/rc522_module_driver.c:104:6:MFRC522_Transmit	24	static
+../Core/Src/rc522_module_driver.c:118:9:MFRC522_ToCard	48	static
+../Core/Src/rc522_module_driver.c:173:9:MFRC522_Request	32	static
+../Core/Src/rc522_module_driver.c:190:9:MFRC522_Anticoll	40	static
