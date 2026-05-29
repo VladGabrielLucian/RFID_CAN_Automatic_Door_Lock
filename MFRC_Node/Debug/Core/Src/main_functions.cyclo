@@ -1,7 +1,6 @@
-../Core/Src/main_functions.c:18:6:CAN_Init	1
-../Core/Src/main_functions.c:38:6:CAN_Network_Start	2
-../Core/Src/main_functions.c:44:9:CAN_Transmit_Message	3
-../Core/Src/main_functions.c:65:6:Reader_Manage_KeepAlive	4
-../Core/Src/main_functions.c:80:6:Reader_RFID	3
-../Core/Src/main_functions.c:94:6:Reader_Notification_Feedback	3
-../Core/Src/main_functions.c:153:6:HAL_CAN_RxFifo0MsgPendingCallback	3
+../Core/Src/main_functions.c:19:6:CAN_Init	1
+../Core/Src/main_functions.c:42:6:CAN_Network_Start	2
+../Core/Src/main_functions.c:48:9:CAN_Transmit_Message	3
+../Core/Src/main_functions.c:69:6:Reader_Manage_KeepAlive	4
+../Core/Src/main_functions.c:84:6:Reader_RFID	3
+../Core/Src/main_functions.c:99:6:HAL_CAN_RxFifo0MsgPendingCallback	3

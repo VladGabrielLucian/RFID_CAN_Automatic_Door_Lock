@@ -52,6 +52,9 @@ default.size.stdout \
 OBJDUMP_LIST += \
 Central_Node.list \
 
+OBJCOPY_HEX += \
+Central_Node.hex \
+
 
 # All Target
 all: main-build
@@ -75,12 +78,17 @@ Central_Node.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
+Central_Node.hex: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O ihex $(EXECUTABLES) "Central_Node.hex"
+	@echo 'Finished building: $@'
+	@echo ' '
+
 # Other Targets
 clean:
-	-$(RM) Central_Node.elf Central_Node.list Central_Node.map default.size.stdout
+	-$(RM) Central_Node.elf Central_Node.hex Central_Node.list Central_Node.map default.size.stdout
 	-@echo ' '
 
-secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
+secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_HEX)
 
 fail-specified-linker-script-missing:
 	@echo 'Error: Cannot find the specified linker script. Check the linker settings in the build configuration.'

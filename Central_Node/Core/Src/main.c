@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,6 +42,8 @@
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan;
 
+UART_HandleTypeDef huart1;
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -50,6 +52,7 @@ CAN_HandleTypeDef hcan;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -91,8 +94,13 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_CAN_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  CAN_FilterTypeDef canFilterConfig;
+  char msg[] = "CAN/UART Diagnostic Online\r\n";
+    HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+
+    // 1. Configurare structură Filtru CAN Complet Deschis
+    CAN_FilterTypeDef canFilterConfig;
     canFilterConfig.FilterActivation = ENABLE;
     canFilterConfig.FilterBank = 0;
     canFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
@@ -104,17 +112,19 @@ int main(void)
     canFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
     canFilterConfig.SlaveStartFilterBank = 14;
 
+    // 2. Aplică filtrul PRIMA DATĂ (Această funcție va scrie în FMR și va închide FINIT)
     if (HAL_CAN_ConfigFilter(&hcan, &canFilterConfig) != HAL_OK)
     {
         Error_Handler();
     }
 
+    // 3. Pornește perifericul abia DUPĂ ce filtrele sunt locked
     if (HAL_CAN_Start(&hcan) != HAL_OK)
     {
         Error_Handler();
     }
 
-    // Configurare pachet transmisie răspuns (ID 0x200)
+    // Configurare Pachet Răspuns (ID 0x200)
     CAN_TxHeaderTypeDef TxHeader;
     uint8_t TxData[1];
     uint32_t TxMailbox;
@@ -125,48 +135,66 @@ int main(void)
     TxHeader.DLC = 1;
     TxHeader.TransmitGlobalTime = DISABLE;
 
-    // Structuri recepție
+    // Structuri Recepție
     CAN_RxHeaderTypeDef RxHeader;
-    uint8_t RxData[8];
-  /* USER CODE END 2 */
+    uint8_t RxData[8];  /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
     while (1)
       {
-          // Verifică buffer hardware FIFO0
-          if (HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
-          {
-              if (HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
-              {
-                  switch (RxHeader.StdId)
-                  {
-                      case 0x100: // ID primit de la MFRC Node
-                          // Verifică dacă primul octet coincide cu UID-ul tău real (161)
-                          if (RxData[0] == 161)
-                          {
-                              TxData[0] = 0x01; // ACCES PERMIS -> Declansează melodia (. . . __)
-                          }
-                          else
-                          {
-                              TxData[0] = 0x02; // ACCES RESPINS -> Bip lung roșu
-                          }
-                          HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);
-                          break;
+    	// Verifică buffer hardware FIFO0 pe Central
+    	      if (HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
+    	      {
+    	          if (HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
+    	          {
+    	              switch (RxHeader.StdId)
+    	              {
+    	                  case 0x100: // ID primit de la MFRC Node (UID-ul scanat)
 
-                      case 0x105: // Keep-Alive
-                          // Primit periodic de la cititor, ignorat în testul rapid
-                          break;
+    	                      // Validare octet cu octet pentru UID-ul tău fizic real: [161, 19, 50, 7, 135]
+    	                      if (RxHeader.DLC == 5 &&
+    	                          RxData[0] == 161 &&
+    	                          RxData[1] == 19  &&
+    	                          RxData[2] == 50  &&
+    	                          RxData[3] == 7   &&
+    	                          RxData[4] == 135)
+    	                      {
+    	                          TxData[0] = 0x01; // Cod pentru ACCES PERMIS
+    	                          HAL_UART_Transmit(&huart1, (uint8_t*)"UID Valid! Trimitem feedback...\r\n", 33, 100);
+    	                      }
+    	                      else
+    	                      {
+    	                          TxData[0] = 0x02; // Cod pentru ACCES RESPINS
+    	                          HAL_UART_Transmit(&huart1, (uint8_t*)"UID Invalid! Respins.\r\n", 23, 100);
+    	                      }
 
-                      default:
-                          break;
-                  }
-              }
-          }
-      }
+    	                      // Trimite decizia înapoi pe ID 0x200.
+    	                      // Întreruperea de pe MFRC va prinde acest mesaj și va activa buzzerul!
+    	                      if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK)
+    	                      {
+    	                          HAL_UART_Transmit(&huart1, (uint8_t*)"EROARE: Transmisie CAN TX esuata!\r\n", 35, 100);
+    	                      }
+    	                      else
+    	                      {
+    	                          HAL_UART_Transmit(&huart1, (uint8_t*)"Succes: Răspuns trimis pe magistrală.\r\n", 40, 100);
+    	                      }
+    	                      break;
+
+    	                  case 0x105: // Keep-Alive de la cititor
+    	                      HAL_UART_Transmit(&huart1, (uint8_t*)"Ping Cititor OK\r\n", 17, 100);
+    	                      break;
+
+    	                  default:
+    	                      break;
+    	              }
+    	          }
+    	      }
+    	  }
       /* USER CODE END WHILE */
-  }
+    }
   /* USER CODE END 3 */
+
 
 /**
   * @brief System Clock Configuration
@@ -241,6 +269,39 @@ static void MX_CAN_Init(void)
   /* USER CODE BEGIN CAN_Init 2 */
 
   /* USER CODE END CAN_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
 
 }
 

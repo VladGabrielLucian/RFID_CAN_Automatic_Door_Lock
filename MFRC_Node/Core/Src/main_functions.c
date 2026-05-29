@@ -14,6 +14,7 @@ static uint32_t last_keepalive_tick = 0;
 static uint8_t card_type[2];
 static uint8_t card_uid[5];
 static uint8_t rfid_status;
+volatile uint8_t uid_response_flag = 0;
 
 void CAN_Init(void){
 
@@ -22,13 +23,16 @@ void CAN_Init(void){
 	canfilterconfig.FilterActivation = ENABLE;
 	canfilterconfig.FilterBank = 0; 	//which filter bank to use from the assigned ones
 	canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-	canfilterconfig.FilterIdHigh = 0x100<<5;
-	canfilterconfig.FilterIdLow = 0;
-	canfilterconfig.FilterMaskIdHigh = 0x7FF<<5;	//define which ID bits to be compared (universal mask)
+	canfilterconfig.FilterIdHigh = 0x0000;
+	canfilterconfig.FilterIdLow = 0x0000;
+	canfilterconfig.FilterMaskIdHigh = 0x0000;	//define which ID bits to be compared (universal mask)
 	canfilterconfig.FilterMaskIdLow = 0x0000;
 	canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
 	canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
 	canfilterconfig.SlaveStartFilterBank = 14;
+
+	HAL_NVIC_SetPriority(USB_LP_CAN1_RX0_IRQn, 1, 0);
+	HAL_NVIC_EnableIRQ(USB_LP_CAN1_RX0_IRQn);
 
 	HAL_CAN_ConfigFilter(&hcan, &canfilterconfig);
 	HAL_CAN_Start(&hcan);
@@ -87,64 +91,6 @@ void Reader_RFID(void){
 		}
 	}
 }
-/**
- * @brief: function which separates the response_types
- * @param response_type: decision variable
- */
-void Reader_Notification_Feedback(uint8_t response_type){
-	switch(response_type){
-	case 0x01:
-		//3 short beeps
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_SET);
-		HAL_Delay(80);
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
-		HAL_Delay(80);
-
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_SET);
-		HAL_Delay(80);
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
-		HAL_Delay(80);
-
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_SET);
-		HAL_Delay(80);
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
-		HAL_Delay(80);
-
-		//2 long beeps
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_SET);
-		HAL_Delay(300);
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
-		HAL_Delay(300);
-
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_SET);
-		HAL_Delay(300);
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
-		break;
-
-	case 0x02:
-		HAL_GPIO_WritePin(RED_LED_PORT, RED_LED_PIN, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_SET);
-		HAL_Delay(1000);
-		HAL_GPIO_WritePin(RED_LED_PORT, RED_LED_PIN, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
-	break;
-
-	default:
-		HAL_GPIO_WritePin(GREEN_LED_PORT, GREEN_LED_PIN, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(RED_LED_PORT, RED_LED_PIN, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
-	}
-}
 
 /**
  * @brief Automatically executed callback when a CAN message received in FIFO0
@@ -156,7 +102,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan){
 
 	if(HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK){
 		if(RxHeader.StdId == CAN_ID_CENTRAL_CMD){
-			Reader_Notification_Feedback(RxData[0]);
+			uid_response_flag = RxData[0];
 		}
 	}
 }

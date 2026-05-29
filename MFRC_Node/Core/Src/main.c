@@ -46,7 +46,7 @@ CAN_HandleTypeDef hcan;
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
-
+extern volatile uint8_t uid_response_flag;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -114,16 +114,53 @@ int main(void)
   while (1)
   {
 	  rfid_version = MFRC522_ReadRegister(VersionReg);
+      HAL_Delay(50);
+
+      Reader_Manage_KeepAlive(rfid_version);
+      Reader_RFID();
+
+      // Procesare feedback asincron pe baza flag-ului din întrerupere
+      if (uid_response_flag != 0)
+      {
+          if (uid_response_flag == 0x01) // ACCES PERMIS
+          {
+              // Tipar sonor/vizual: . . . __ (3 scurte, 1 lung) pe LED Verde (PA0)
+              for (uint8_t i = 0; i < 3; i++)
+              {
+                  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+                  HAL_Delay(150);
+                  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+                  HAL_Delay(150);
+              }
+              // Semnalul lung final
+              HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+              HAL_Delay(600);
+              HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+          }
+          else if (uid_response_flag == 0x02) // ACCES RESPINS
+          {
+              // Semnal lung continuu pe LED Roșu (PA12)
+              HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+              HAL_Delay(1200);
+              HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
+          }
+
+          // Curățare flag pentru a permite următoarea citire magistrală
+          uid_response_flag = 0;
+      }
+  }
+	  rfid_version = MFRC522_ReadRegister(VersionReg);
 	  HAL_Delay(50);
 
 	  Reader_Manage_KeepAlive(rfid_version);
 	  Reader_RFID();
   }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
-}
+
 
 /**
   * @brief System Clock Configuration

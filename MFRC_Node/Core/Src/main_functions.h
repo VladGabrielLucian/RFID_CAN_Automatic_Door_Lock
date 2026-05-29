@@ -30,6 +30,5 @@ uint8_t CAN_Transmit_Message(uint32_t stdId, uint8_t *pData, uint8_t length);
 void Reader_RFID(void);
 void Reader_Manage_KeepAlive(uint8_t rfid_version);
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
-void Reader_Notification_Feedback(uint8_t response_type);
 
 #endif /* SRC_MAIN_FUNCTIONS_H_ */
