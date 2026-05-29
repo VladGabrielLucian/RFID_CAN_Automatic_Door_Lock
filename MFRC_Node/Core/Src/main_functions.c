@@ -48,12 +48,13 @@ void CAN_Init(void){
 	HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
 }
 
-void CAN_Network_Start(void){
-	if (HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK){
-		Error_Handler();
-	}
-}
-
+/**
+ * @brief: 			function that packages and transmits a standard CAN message frame
+ * @param stdId:	Standard Identifier (11-bit ID)
+ * @param pData:	pointer to the data payload buffer
+ * @param length:	length of the message
+ * @retval:			0 on success, 1 if transmission failed
+ */
 uint8_t CAN_Transmit_Message(uint32_t stdId, uint8_t *pData, uint8_t length){
 	CAN_TxHeaderTypeDef TxHeader;
 	uint8_t TxData[8] = {0};
@@ -75,27 +76,35 @@ uint8_t CAN_Transmit_Message(uint32_t stdId, uint8_t *pData, uint8_t length){
 	return 1;
 }
 
-void Reader_Manage_KeepAlive(uint8_t rfid_version){
-	uint8_t status_byte;
+/**
+ * @brief:	function that evaluates connectivity with the MFRC module by using a 10-seconds non-blocking timer interval
+ * 			transmits on CAN 0x00 (OK) or 0xFF (Fault), depending on the integrity of the data read from VersionReg
+ */
+void Reader_Manage_KeepAlive(void){
+	if((HAL_GetTick() - last_keepalive_tick) >= 10000){
+		uint8_t status_byte = 0xFF;
 
-	if((HAL_GetTick()-last_keepalive_tick) >= 10000){
-		if(rfid_version == 0x82 || rfid_version == 0x92){
-			status_byte = 0x00;
-		}else{
-			status_byte = 0xFF;
-		}
+		uint8_t version = MFRC522_ReadRegister(VersionReg);
+
+		if(version == 0x82 || version == 0x92){
+				status_byte = 0x00;
+			}
 		CAN_Transmit_Message(CAN_ID_READER_STATUS, &status_byte, 1);
 		last_keepalive_tick = HAL_GetTick();
 	}
-
 }
 
+/**
+ * @breif:	function that executes sequential polling of the MFRC522 IC for active RF field tokens
+ * 			also extracts the 5-byte unique UID array and sends it to the Central Node via CAN Bus
+ */
 void Reader_RFID(void){
 	rfid_status = MFRC522_Request(PICC_REQIDL, card_type);
 	if(rfid_status == 0){
 		rfid_status = MFRC522_Anticoll(card_uid);
 		if(rfid_status == 0){
 			CAN_Transmit_Message(CAN_ID_READER_UID, card_uid, 5);
+			/*	delay in order to avoid overlapping reads of the same card	 */
 			HAL_Delay(1500);
 		}
 	}

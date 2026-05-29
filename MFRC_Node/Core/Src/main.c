@@ -117,10 +117,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	 rfid_version = MFRC522_ReadRegister(VersionReg);
-	 HAL_Delay(50);
-
-	 Reader_Manage_KeepAlive(rfid_version);
+	 Reader_Manage_KeepAlive();
 	 Reader_RFID();
 
 	 if(uid_response_flag != 0){

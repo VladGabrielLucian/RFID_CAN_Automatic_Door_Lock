@@ -25,10 +25,9 @@
 #include "stm32f1xx_hal.h"
 
 void CAN_Init(void);
-void CAN_Network_Start(void);
 uint8_t CAN_Transmit_Message(uint32_t stdId, uint8_t *pData, uint8_t length);
 void Reader_RFID(void);
-void Reader_Manage_KeepAlive(uint8_t rfid_version);
+void Reader_Manage_KeepAlive(void);
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
 
 void Reader_Feedback(uint8_t command);
