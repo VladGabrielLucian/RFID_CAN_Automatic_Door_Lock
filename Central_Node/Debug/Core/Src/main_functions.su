@@ -1,0 +1,2 @@
+../Core/Src/main_functions.c:13:6:CAN_Init	48	static
+../Core/Src/main_functions.c:35:6:Central_Process_Messages	80	static

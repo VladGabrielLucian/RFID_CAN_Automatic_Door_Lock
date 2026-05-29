@@ -37,15 +37,15 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  16 .debug_macro  00017513  00000000  00000000  000150e4  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   0000dcef  00000000  00000000  0002c5f7  2**0
+ 17 .debug_line   0000dcf0  00000000  00000000  0002c5f7  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    00088c73  00000000  00000000  0003a2e6  2**0
+ 18 .debug_str    00088c73  00000000  00000000  0003a2e7  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  000c2f59  2**0
+ 19 .comment      00000043  00000000  00000000  000c2f5a  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00003428  00000000  00000000  000c2f9c  2**2
+ 20 .debug_frame  00003428  00000000  00000000  000c2fa0  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 00000060  00000000  00000000  000c63c4  2**0
+ 21 .debug_line_str 00000060  00000000  00000000  000c63c8  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -850,7 +850,11 @@ void CAN_Init(void){
  8000588:	20000028 	.word	0x20000028
 
 0800058c <CAN_Transmit_Message>:
-
+ * @param stdId:	Standard Identifier (11-bit ID)
+ * @param pData:	pointer to the data payload buffer
+ * @param length:	length of the message
+ * @retval:			0 on success, 1 if transmission failed
+ */
 uint8_t CAN_Transmit_Message(uint32_t stdId, uint8_t *pData, uint8_t length){
  800058c:	b580      	push	{r7, lr}
  800058e:	b08e      	sub	sp, #56	@ 0x38
@@ -931,6 +935,10 @@ uint8_t CAN_Transmit_Message(uint32_t stdId, uint8_t *pData, uint8_t length){
 
 08000618 <Reader_Manage_KeepAlive>:
 
+/**
+ * @brief:	function that evaluates connectivity with the MFRC module by using a 10-seconds non-blocking timer interval
+ * 			transmits on CAN 0x00 (OK) or 0xFF (Fault), depending on the integrity of the data read from VersionReg
+ */
 void Reader_Manage_KeepAlive(void){
  8000618:	b580      	push	{r7, lr}
  800061a:	b082      	sub	sp, #8
@@ -986,6 +994,10 @@ void Reader_Manage_KeepAlive(void){
 
 08000674 <Reader_RFID>:
 
+/**
+ * @breif:	function that executes sequential polling of the MFRC522 IC for active RF field tokens
+ * 			also extracts the 5-byte unique UID array and sends it to the Central Node via CAN Bus
+ */
 void Reader_RFID(void){
  8000674:	b580      	push	{r7, lr}
  8000676:	af00      	add	r7, sp, #0
@@ -1019,6 +1031,7 @@ void Reader_RFID(void){
  80006a8:	4907      	ldr	r1, [pc, #28]	@ (80006c8 <Reader_RFID+0x54>)
  80006aa:	f44f 7080 	mov.w	r0, #256	@ 0x100
  80006ae:	f7ff ff6d 	bl	800058c <CAN_Transmit_Message>
+			/*	delay in order to avoid overlapping reads of the same card	 */
 			HAL_Delay(1500);
  80006b2:	f240 50dc 	movw	r0, #1500	@ 0x5dc
  80006b6:	f000 fcbb 	bl	8001030 <HAL_Delay>
@@ -1282,11 +1295,11 @@ void ALARM(void){
  8000850:	40010800 	.word	0x40010800
 
 08000854 <MFRC522_ReadRegister>:
-
-#define CS_ENABLE() HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_RESET)
-#define CS_DISABLE() HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_SET)
-
-
+/**
+ * @breif:		reads a byte of data from a specific internal hardware register
+ * @param addr:	the address of the targeted register
+ * @retval:		8-bit data read from the register
+ */
 uint8_t MFRC522_ReadRegister(uint8_t addr){
  8000854:	b580      	push	{r7, lr}
  8000856:	b086      	sub	sp, #24
@@ -1295,7 +1308,7 @@ uint8_t MFRC522_ReadRegister(uint8_t addr){
  800085c:	71fb      	strb	r3, [r7, #7]
 	uint8_t txData[2];
 	uint8_t rxData[2];
-
+/*	formatting address byte by shifting its adress bits (b1-b6), b7 must be 1 for read, b0 is 0 */
 	txData[0] = ((addr << 1) & 0x7E) | 0x80;
  800085e:	f997 3007 	ldrsb.w	r3, [r7, #7]
  8000862:	005b      	lsls	r3, r3, #1
@@ -1306,7 +1319,7 @@ uint8_t MFRC522_ReadRegister(uint8_t addr){
  8000870:	b25b      	sxtb	r3, r3
  8000872:	b2db      	uxtb	r3, r3
  8000874:	733b      	strb	r3, [r7, #12]
-	txData[1] = 0x00;
+	txData[1] = 0x00;	// dummy byte to clock out data
  8000876:	2300      	movs	r3, #0
  8000878:	737b      	strb	r3, [r7, #13]
 
@@ -1341,7 +1354,11 @@ uint8_t MFRC522_ReadRegister(uint8_t addr){
  80008b8:	20000050 	.word	0x20000050
 
 080008bc <MFRC522_WriteRegister>:
-
+/**
+ * @brief:		function user for writing a byte of data into a specific internal hardware register
+ * @param addr:	address of the targeted register
+ * @param data:	8-bit value to be stored inside the register
+ */
 void MFRC522_WriteRegister(uint8_t addr, uint8_t data){
  80008bc:	b580      	push	{r7, lr}
  80008be:	b084      	sub	sp, #16
@@ -1353,6 +1370,7 @@ void MFRC522_WriteRegister(uint8_t addr, uint8_t data){
  80008ca:	71bb      	strb	r3, [r7, #6]
 	uint8_t txData[2];
 
+/*	formatting the address byte */
 	txData[0] = (addr<<1) & 0x7E;
  80008cc:	79fb      	ldrb	r3, [r7, #7]
  80008ce:	005b      	lsls	r3, r3, #1
@@ -1391,6 +1409,9 @@ void MFRC522_WriteRegister(uint8_t addr, uint8_t data){
 
 08000918 <MFRC522_AntennaON>:
 
+/**
+ * @brief:	enables the RF internal antenna driver pins (Tx1 and Tx2)
+ */
 void MFRC522_AntennaON(){
  8000918:	b580      	push	{r7, lr}
  800091a:	b082      	sub	sp, #8
@@ -1400,7 +1421,7 @@ void MFRC522_AntennaON(){
  8000920:	f7ff ff98 	bl	8000854 <MFRC522_ReadRegister>
  8000924:	4603      	mov	r3, r0
  8000926:	71fb      	strb	r3, [r7, #7]
-	crt_ant_state |= 0x03;
+	crt_ant_state |= 0x03;	//bits 0 and 1 set to switch ON transmitter pins
  8000928:	79fb      	ldrb	r3, [r7, #7]
  800092a:	f043 0303 	orr.w	r3, r3, #3
  800092e:	71fb      	strb	r3, [r7, #7]
@@ -1418,9 +1439,13 @@ void MFRC522_AntennaON(){
 
 08000944 <MFRC522_Init>:
 
+/**
+ * @brief:	function that initializes the MFRC522 module, configures internal timers and triggers the antenna
+ */
 void MFRC522_Init(){
  8000944:	b580      	push	{r7, lr}
  8000946:	af00      	add	r7, sp, #0
+/*	Hard request sequence	*/
 	HAL_GPIO_WritePin(RST_PORT, RST_PIN, GPIO_PIN_RESET);
  8000948:	2200      	movs	r2, #0
  800094a:	f44f 5180 	mov.w	r1, #4096	@ 0x1000
@@ -1444,7 +1469,7 @@ void MFRC522_Init(){
  8000972:	4814      	ldr	r0, [pc, #80]	@ (80009c4 <MFRC522_Init+0x80>)
  8000974:	f001 fc52 	bl	800221c <HAL_GPIO_WritePin>
 
-	MFRC522_WriteRegister(CommandReg, 0x0F);
+	MFRC522_WriteRegister(CommandReg, 0x0F);	// soft reset
  8000978:	210f      	movs	r1, #15
  800097a:	2001      	movs	r0, #1
  800097c:	f7ff ff9e 	bl	80008bc <MFRC522_WriteRegister>
@@ -1453,6 +1478,7 @@ void MFRC522_Init(){
  8000980:	2032      	movs	r0, #50	@ 0x32
  8000982:	f000 fb55 	bl	8001030 <HAL_Delay>
 
+/*	Time configuration for the ISO14443A protocol	*/
 	MFRC522_WriteRegister(TModeReg, 0x8D);
  8000986:	218d      	movs	r1, #141	@ 0x8d
  8000988:	202a      	movs	r0, #42	@ 0x2a
@@ -1471,11 +1497,11 @@ void MFRC522_Init(){
  80009a0:	202c      	movs	r0, #44	@ 0x2c
  80009a2:	f7ff ff8b 	bl	80008bc <MFRC522_WriteRegister>
 
-	MFRC522_WriteRegister(TxASKReg, 0x40);
+	MFRC522_WriteRegister(TxASKReg, 0x40);		//100% ASK modulation (for passive UID cards)
  80009a6:	2140      	movs	r1, #64	@ 0x40
  80009a8:	2015      	movs	r0, #21
  80009aa:	f7ff ff87 	bl	80008bc <MFRC522_WriteRegister>
-	MFRC522_WriteRegister(ModeReg, 0x3D);
+	MFRC522_WriteRegister(ModeReg, 0x3D);		//configures internal receiver
  80009ae:	213d      	movs	r1, #61	@ 0x3d
  80009b0:	2011      	movs	r0, #17
  80009b2:	f7ff ff83 	bl	80008bc <MFRC522_WriteRegister>
@@ -1490,11 +1516,11 @@ void MFRC522_Init(){
  80009c4:	40010800 	.word	0x40010800
 
 080009c8 <MFRC522_ToCard>:
-
-	uint8_t current_framing = MFRC522_ReadRegister(BitFramingReg);
-	MFRC522_WriteRegister(BitFramingReg, current_framing | 0x80);
-}
-
+ * @param: sendLen:	size of the transmission data array in bytes
+ * @param backData:	pointer to destination array where response will be stored
+ * @param backLen:	pointer to the variable storing the total number of bits received
+ * @reval:			0 on successful execution and 2 on communication timeout
+ */
 uint8_t MFRC522_ToCard(uint8_t command, uint8_t *sendData, uint8_t sendLen, uint8_t *backData, uint16_t *backLen){
  80009c8:	b590      	push	{r4, r7, lr}
  80009ca:	b089      	sub	sp, #36	@ 0x24
@@ -1528,19 +1554,19 @@ uint8_t MFRC522_ToCard(uint8_t command, uint8_t *sendData, uint8_t sendLen, uint
  80009f8:	f7ff ff2c 	bl	8000854 <MFRC522_ReadRegister>
  80009fc:	4603      	mov	r3, r0
  80009fe:	75bb      	strb	r3, [r7, #22]
-	MFRC522_WriteRegister(ComIrqReg, current_irq & (~0x80));
+	MFRC522_WriteRegister(ComIrqReg, current_irq & (~0x80));	//clears interrupt request flags
  8000a00:	7dbb      	ldrb	r3, [r7, #22]
  8000a02:	f003 037f 	and.w	r3, r3, #127	@ 0x7f
  8000a06:	b2db      	uxtb	r3, r3
  8000a08:	4619      	mov	r1, r3
  8000a0a:	2004      	movs	r0, #4
  8000a0c:	f7ff ff56 	bl	80008bc <MFRC522_WriteRegister>
-	MFRC522_WriteRegister(FIFOLevelReg, 0x80);
+	MFRC522_WriteRegister(FIFOLevelReg, 0x80);					//flush FIFO
  8000a10:	2180      	movs	r1, #128	@ 0x80
  8000a12:	200a      	movs	r0, #10
  8000a14:	f7ff ff52 	bl	80008bc <MFRC522_WriteRegister>
 
-	MFRC522_WriteRegister(CommandReg, 0x00); // Trecere forțată în Idle
+	MFRC522_WriteRegister(CommandReg, 0x00);					//force Idle mode
  8000a18:	2100      	movs	r1, #0
  8000a1a:	2001      	movs	r0, #1
  8000a1c:	f7ff ff4e 	bl	80008bc <MFRC522_WriteRegister>
@@ -1581,7 +1607,7 @@ uint8_t MFRC522_ToCard(uint8_t command, uint8_t *sendData, uint8_t sendLen, uint
  8000a56:	f7ff fefd 	bl	8000854 <MFRC522_ReadRegister>
  8000a5a:	4603      	mov	r3, r0
  8000a5c:	757b      	strb	r3, [r7, #21]
-		MFRC522_WriteRegister(BitFramingReg, current_framing | 0x80);
+		MFRC522_WriteRegister(BitFramingReg, current_framing | 0x80);	//trigger transmission start
  8000a5e:	7d7b      	ldrb	r3, [r7, #21]
  8000a60:	f063 037f 	orn	r3, r3, #127	@ 0x7f
  8000a64:	b2db      	uxtb	r3, r3
@@ -1589,7 +1615,7 @@ uint8_t MFRC522_ToCard(uint8_t command, uint8_t *sendData, uint8_t sendLen, uint
  8000a68:	200d      	movs	r0, #13
  8000a6a:	f7ff ff27 	bl	80008bc <MFRC522_WriteRegister>
 	}
-
+/* 	polling loop with software timeout counter	*/
 	uint16_t limit = 2000;
  8000a6e:	f44f 63fa 	mov.w	r3, #2000	@ 0x7d0
  8000a72:	837b      	strh	r3, [r7, #26]
@@ -1603,7 +1629,7 @@ uint8_t MFRC522_ToCard(uint8_t command, uint8_t *sendData, uint8_t sendLen, uint
  8000a7e:	8b7b      	ldrh	r3, [r7, #26]
  8000a80:	3b01      	subs	r3, #1
  8000a82:	837b      	strh	r3, [r7, #26]
-	} while((limit != 0) && !(n & 0x01) && !(n & waitIRq));
+	} while((limit != 0) && !(n & 0x01) && !(n & waitIRq));		//loop until timeout, global IRQ or target flags match
  8000a84:	8b7b      	ldrh	r3, [r7, #26]
  8000a86:	2b00      	cmp	r3, #0
  8000a88:	d00a      	beq.n	8000aa0 <MFRC522_ToCard+0xd8>
@@ -1623,7 +1649,7 @@ uint8_t MFRC522_ToCard(uint8_t command, uint8_t *sendData, uint8_t sendLen, uint
  8000aa2:	f7ff fed7 	bl	8000854 <MFRC522_ReadRegister>
  8000aa6:	4603      	mov	r3, r0
  8000aa8:	753b      	strb	r3, [r7, #20]
-	MFRC522_WriteRegister(BitFramingReg, current_framing & 0x7F);
+	MFRC522_WriteRegister(BitFramingReg, current_framing & 0x7F);	//clear transmission flag bit
  8000aaa:	7d3b      	ldrb	r3, [r7, #20]
  8000aac:	f003 037f 	and.w	r3, r3, #127	@ 0x7f
  8000ab0:	b2db      	uxtb	r3, r3
@@ -1640,7 +1666,7 @@ uint8_t MFRC522_ToCard(uint8_t command, uint8_t *sendData, uint8_t sendLen, uint
  8000ac2:	f7ff fec7 	bl	8000854 <MFRC522_ReadRegister>
  8000ac6:	4603      	mov	r3, r0
  8000ac8:	74fb      	strb	r3, [r7, #19]
-		if(!(errorRegValue & 0x1B)){
+		if(!(errorRegValue & 0x1B)){			//check for BufferOverflow, ParityError, ProtocolError or CollisionError
  8000aca:	7cfb      	ldrb	r3, [r7, #19]
  8000acc:	f003 031b 	and.w	r3, r3, #27
  8000ad0:	2b00      	cmp	r3, #0
@@ -1734,7 +1760,11 @@ uint8_t MFRC522_ToCard(uint8_t command, uint8_t *sendData, uint8_t sendLen, uint
  8000b60:	bd90      	pop	{r4, r7, pc}
 
 08000b62 <MFRC522_Request>:
-
+ * @breif:			sends a request command to query the RF field for passive cards
+ * @param reqMode:	the targeting operation request mode
+ * @param tagType:	pointer to destination buffer where card type indicator will be written
+ * @retval:			0 on successful identification of a card, 2 on failure
+ */
 uint8_t MFRC522_Request(uint8_t reqMode, uint8_t *tagType){
  8000b62:	b580      	push	{r7, lr}
  8000b64:	b086      	sub	sp, #24
@@ -1786,7 +1816,11 @@ uint8_t MFRC522_Request(uint8_t reqMode, uint8_t *tagType){
  8000baa:	bd80      	pop	{r7, pc}
 
 08000bac <MFRC522_Anticoll>:
-
+/**
+ * @brief:		executes standard cascade anti-collision loop sequence to retrieve a tag unique UID
+ * @param UID:	pointer to 5-byte array allocation where data and checksum will be written
+ * @retval:		0 on successful, 2 on transmission or parity errors
+ */
 uint8_t MFRC522_Anticoll(uint8_t *UID){
  8000bac:	b580      	push	{r7, lr}
  8000bae:	b088      	sub	sp, #32
@@ -1799,15 +1833,15 @@ uint8_t MFRC522_Anticoll(uint8_t *UID){
  8000bb4:	2300      	movs	r3, #0
  8000bb6:	75bb      	strb	r3, [r7, #22]
 
-	MFRC522_WriteRegister(BitFramingReg, 0x00);
+	MFRC522_WriteRegister(BitFramingReg, 0x00);		//reset bit adjustments
  8000bb8:	2100      	movs	r1, #0
  8000bba:	200d      	movs	r0, #13
  8000bbc:	f7ff fe7e 	bl	80008bc <MFRC522_WriteRegister>
 
-	reqBuffer[0] = 0x93;
+	reqBuffer[0] = 0x93;		//select cascade level command byte
  8000bc0:	2393      	movs	r3, #147	@ 0x93
  8000bc2:	743b      	strb	r3, [r7, #16]
-	reqBuffer[1] = 0x20;
+	reqBuffer[1] = 0x20;		//NVM (number of valid bits) paramter byte
  8000bc4:	2320      	movs	r3, #32
  8000bc6:	747b      	strb	r3, [r7, #17]
 
@@ -1826,6 +1860,7 @@ uint8_t MFRC522_Anticoll(uint8_t *UID){
  8000be0:	7dfb      	ldrb	r3, [r7, #23]
  8000be2:	2b00      	cmp	r3, #0
  8000be4:	d10f      	bne.n	8000c06 <MFRC522_Anticoll+0x5a>
+		/* 	computes the BCC parity loop	*/
 		for(uint8_t i = 0; i < 4; i++)
  8000be6:	2300      	movs	r3, #0
  8000be8:	757b      	strb	r3, [r7, #21]
@@ -1846,7 +1881,7 @@ uint8_t MFRC522_Anticoll(uint8_t *UID){
  8000c02:	2b03      	cmp	r3, #3
  8000c04:	d9f2      	bls.n	8000bec <MFRC522_Anticoll+0x40>
 	}
-
+/*	Validates computed XOR value against the 5th payload byte (BCC checksum)	*/
 	if(checksum != UID[4]){
  8000c06:	687b      	ldr	r3, [r7, #4]
  8000c08:	3304      	adds	r3, #4

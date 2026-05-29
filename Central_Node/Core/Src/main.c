@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
+#include "main_functions.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -79,9 +80,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-    SystemClock_Config();
-    MX_GPIO_Init();
-    MX_CAN_Init();
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -97,104 +96,24 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   char msg[] = "CAN/UART Diagnostic Online\r\n";
-    HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
 
-    // 1. Configurare structură Filtru CAN Complet Deschis
-    CAN_FilterTypeDef canFilterConfig;
-    canFilterConfig.FilterActivation = ENABLE;
-    canFilterConfig.FilterBank = 0;
-    canFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-    canFilterConfig.FilterIdHigh = 0x0000;
-    canFilterConfig.FilterIdLow = 0x0000;
-    canFilterConfig.FilterMaskIdHigh = 0x0000;
-    canFilterConfig.FilterMaskIdLow = 0x0000;
-    canFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-    canFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-    canFilterConfig.SlaveStartFilterBank = 14;
+  CAN_Init();
 
-    // 2. Aplică filtrul PRIMA DATĂ (Această funcție va scrie în FMR și va închide FINIT)
-    if (HAL_CAN_ConfigFilter(&hcan, &canFilterConfig) != HAL_OK)
-    {
-        Error_Handler();
-    }
-
-    // 3. Pornește perifericul abia DUPĂ ce filtrele sunt locked
-    if (HAL_CAN_Start(&hcan) != HAL_OK)
-    {
-        Error_Handler();
-    }
-
-    // Configurare Pachet Răspuns (ID 0x200)
-    CAN_TxHeaderTypeDef TxHeader;
-    uint8_t TxData[1];
-    uint32_t TxMailbox;
-
-    TxHeader.StdId = 0x200;
-    TxHeader.RTR = CAN_RTR_DATA;
-    TxHeader.IDE = CAN_ID_STD;
-    TxHeader.DLC = 1;
-    TxHeader.TransmitGlobalTime = DISABLE;
-
-    // Structuri Recepție
-    CAN_RxHeaderTypeDef RxHeader;
-    uint8_t RxData[8];  /* USER CODE END 2 */
+  /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
     while (1)
       {
-    	// Verifică buffer hardware FIFO0 pe Central
-    	      if (HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0)
-    	      {
-    	          if (HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
-    	          {
-    	              switch (RxHeader.StdId)
-    	              {
-    	                  case 0x100: // ID primit de la MFRC Node (UID-ul scanat)
+    	Central_Process_Messages();
+      }
+    /* USER CODE END WHILE */
 
-    	                      // Validare octet cu octet pentru UID-ul tău fizic real: [161, 19, 50, 7, 135]
-    	                      if (RxHeader.DLC == 5 &&
-    	                          RxData[0] == 161 &&
-    	                          RxData[1] == 19  &&
-    	                          RxData[2] == 50  &&
-    	                          RxData[3] == 7   &&
-    	                          RxData[4] == 135)
-    	                      {
-    	                          TxData[0] = 0x01; // Cod pentru ACCES PERMIS
-    	                          HAL_UART_Transmit(&huart1, (uint8_t*)"UID Valid! Trimitem feedback...\r\n", 33, 100);
-    	                      }
-    	                      else
-    	                      {
-    	                          TxData[0] = 0x02; // Cod pentru ACCES RESPINS
-    	                          HAL_UART_Transmit(&huart1, (uint8_t*)"UID Invalid! Respins.\r\n", 23, 100);
-    	                      }
+    /* USER CODE BEGIN 3 */
 
-    	                      // Trimite decizia înapoi pe ID 0x200.
-    	                      // Întreruperea de pe MFRC va prinde acest mesaj și va activa buzzerul!
-    	                      if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK)
-    	                      {
-    	                          HAL_UART_Transmit(&huart1, (uint8_t*)"EROARE: Transmisie CAN TX esuata!\r\n", 35, 100);
-    	                      }
-    	                      else
-    	                      {
-    	                          HAL_UART_Transmit(&huart1, (uint8_t*)"Succes: Răspuns trimis pe magistrală.\r\n", 40, 100);
-    	                      }
-    	                      break;
-
-    	                  case 0x105: // Keep-Alive de la cititor
-    	                      HAL_UART_Transmit(&huart1, (uint8_t*)"Ping Cititor OK\r\n", 17, 100);
-    	                      break;
-
-    	                  default:
-    	                      break;
-    	              }
-    	          }
-    	      }
-    	  }
-      /* USER CODE END WHILE */
-    }
   /* USER CODE END 3 */
-
+}
 
 /**
   * @brief System Clock Configuration
@@ -312,13 +231,25 @@ static void MX_USART1_UART_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
 
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+
+  /*Configure GPIO pin : PB10 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
