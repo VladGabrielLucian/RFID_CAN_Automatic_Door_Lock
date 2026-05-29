@@ -45,6 +45,8 @@ CAN_HandleTypeDef hcan;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim2;
+
 /* USER CODE BEGIN PV */
 extern volatile uint8_t uid_response_flag;
 /* USER CODE END PV */
@@ -54,6 +56,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -99,6 +102,7 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN_Init();
   MX_SPI1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   CAN_Init();
   MFRC522_Init();
@@ -113,54 +117,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  rfid_version = MFRC522_ReadRegister(VersionReg);
-      HAL_Delay(50);
+	 rfid_version = MFRC522_ReadRegister(VersionReg);
+	 HAL_Delay(50);
 
-      Reader_Manage_KeepAlive(rfid_version);
-      Reader_RFID();
+	 Reader_Manage_KeepAlive(rfid_version);
+	 Reader_RFID();
 
-      // Procesare feedback asincron pe baza flag-ului din întrerupere
-      if (uid_response_flag != 0)
-      {
-          if (uid_response_flag == 0x01) // ACCES PERMIS
-          {
-              // Tipar sonor/vizual: . . . __ (3 scurte, 1 lung) pe LED Verde (PA0)
-              for (uint8_t i = 0; i < 3; i++)
-              {
-                  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-                  HAL_Delay(150);
-                  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-                  HAL_Delay(150);
-              }
-              // Semnalul lung final
-              HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-              HAL_Delay(600);
-              HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-          }
-          else if (uid_response_flag == 0x02) // ACCES RESPINS
-          {
-              // Semnal lung continuu pe LED Roșu (PA12)
-              HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
-              HAL_Delay(1200);
-              HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
-          }
-
-          // Curățare flag pentru a permite următoarea citire magistrală
-          uid_response_flag = 0;
-      }
-  }
-	  rfid_version = MFRC522_ReadRegister(VersionReg);
-	  HAL_Delay(50);
-
-	  Reader_Manage_KeepAlive(rfid_version);
-	  Reader_RFID();
+	 if(uid_response_flag != 0){
+		 Reader_Feedback(uid_response_flag);
+	 }
   }
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
-
+}
 
 /**
   * @brief System Clock Configuration
@@ -273,6 +245,65 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 63;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 500;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
 
 }
 

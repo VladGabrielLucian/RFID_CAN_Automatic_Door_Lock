@@ -1,6 +1,10 @@
-../Core/Src/main_functions.c:19:6:CAN_Init	48	static
-../Core/Src/main_functions.c:42:6:CAN_Network_Start	8	static
-../Core/Src/main_functions.c:48:9:CAN_Transmit_Message	64	static
-../Core/Src/main_functions.c:69:6:Reader_Manage_KeepAlive	24	static
-../Core/Src/main_functions.c:84:6:Reader_RFID	8	static
-../Core/Src/main_functions.c:99:6:HAL_CAN_RxFifo0MsgPendingCallback	56	static
+../Core/Src/main_functions.c:25:6:CAN_Init	48	static
+../Core/Src/main_functions.c:51:6:CAN_Network_Start	8	static
+../Core/Src/main_functions.c:57:9:CAN_Transmit_Message	64	static
+../Core/Src/main_functions.c:78:6:Reader_Manage_KeepAlive	24	static
+../Core/Src/main_functions.c:93:6:Reader_RFID	8	static
+../Core/Src/main_functions.c:108:6:HAL_CAN_RxFifo0MsgPendingCallback	56	static
+../Core/Src/main_functions.c:122:6:Reader_Feedback	24	static
+../Core/Src/main_functions.c:147:6:OK_UID_Tone	16	static
+../Core/Src/main_functions.c:159:6:BAD_UID_Tone	16	static
+../Core/Src/main_functions.c:169:6:ALARM	16	static

@@ -31,4 +31,9 @@ void Reader_RFID(void);
 void Reader_Manage_KeepAlive(uint8_t rfid_version);
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
 
+void Reader_Feedback(uint8_t command);
+void OK_UID_Tone(uint32_t duration);
+void BAD_UID_Tone(uint32_t duration);
+void ALARM(void);
+
 #endif /* SRC_MAIN_FUNCTIONS_H_ */
