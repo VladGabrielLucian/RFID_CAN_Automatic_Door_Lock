@@ -2,8 +2,8 @@
 ../Core/Src/main_functions.c:58:9:CAN_Transmit_Message	64	static
 ../Core/Src/main_functions.c:83:6:Reader_Manage_KeepAlive	16	static
 ../Core/Src/main_functions.c:101:6:Reader_RFID	8	static
-../Core/Src/main_functions.c:117:6:HAL_CAN_RxFifo0MsgPendingCallback	56	static
-../Core/Src/main_functions.c:131:6:Reader_Feedback	24	static
-../Core/Src/main_functions.c:158:6:OK_UID_Tone	16	static
-../Core/Src/main_functions.c:170:6:BAD_UID_Tone	16	static
-../Core/Src/main_functions.c:180:6:ALARM	16	static
+../Core/Src/main_functions.c:119:6:HAL_CAN_RxFifo0MsgPendingCallback	56	static
+../Core/Src/main_functions.c:133:6:Reader_Feedback	24	static
+../Core/Src/main_functions.c:160:6:OK_UID_Tone	16	static
+../Core/Src/main_functions.c:172:6:BAD_UID_Tone	16	static
+../Core/Src/main_functions.c:182:6:ALARM	16	static

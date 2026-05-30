@@ -78,6 +78,9 @@ void Central_Process_Messages(void){
 			  			  while(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) > 0){
 			  				  HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData);
 			  			  }
+			  			/*	Resetting the FIFO0 overrun flag	*/
+			  			__HAL_CAN_CLEAR_FLAG(&hcan, CAN_FLAG_FOV0);
+
 			  		  }else{
 			  			  TxData[0] = 0x02;		// access denied code
 			  			  HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);

@@ -99,6 +99,8 @@ void Reader_Manage_KeepAlive(void){
  * 			also extracts the 5-byte unique UID array and sends it to the Central Node via CAN Bus
  */
 void Reader_RFID(void){
+	MFRC522_WriteRegister(0x01, 0x00);
+
 	rfid_status = MFRC522_Request(PICC_REQIDL, card_type);
 	if(rfid_status == 0){
 		rfid_status = MFRC522_Anticoll(card_uid);
